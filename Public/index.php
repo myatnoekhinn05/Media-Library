@@ -11,6 +11,7 @@ use App\Repositories\UserRepository;
 use App\Services\CatalogService;
 use App\Services\FormatService;
 use App\Services\UserService;
+use App\Services\Validator;
 
 use App\Controllers\CatalogController;
 use App\Controllers\DetailsController;
@@ -20,6 +21,7 @@ use App\Controllers\AuthController;
 use App\Controllers\Api\CatalogApiController;
 use App\Controllers\Api\DetailsApiController;
 use App\Controllers\Api\SuggestApiController;
+use App\Controllers\Api\AuthApiController;
 
 /*
 |--------------------------------------------------------------------------
@@ -80,7 +82,13 @@ $userRepo    = new UserRepository($db);
 */
 $catalogService = new CatalogService($catalogRepo);
 $formatService  = new FormatService($formatRepo);
-$userService    = new UserService($userRepo);
+// $userService    = new UserService($userRepo);
+$validator = new Validator();
+
+$userService = new UserService(
+    $userRepo,
+    $validator
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -94,12 +102,44 @@ $authController    = new AuthController($userService);
 
 /*
 |--------------------------------------------------------------------------
+| API CONTROLLERS (CREATE ONCE ONLY)
+|--------------------------------------------------------------------------
+*/
+
+$authApiController = new AuthApiController($userService);
+
+/*
+|--------------------------------------------------------------------------
 | ROUTER
 |--------------------------------------------------------------------------
 */
 $page = $_GET['page'] ?? 'home';
 
+
+/*
+|----------------------------------------------------------------
+| AUTH PROTECTION (PUT HERE)
+|----------------------------------------------------------------
+*/
+/*
+|--------------------------------------------------------------------------
+| AUTH MIDDLEWARE (FIXED)
+|--------------------------------------------------------------------------
+*/
+$protectedPages = ['home', 'catalog', 'details', 'suggest'];
+
+if (
+    in_array($page, $protectedPages) &&
+    !isset($_SESSION['user_id'])
+) {
+    $_SESSION['auth_error'] = "Please login first!";
+
+    header("Location: index.php?page=login");
+    exit;
+}
+
 switch ($page) {
+
 
     /*
     |--------------------------------------------------------------------------
@@ -166,6 +206,19 @@ switch ($page) {
         $controller = new SuggestApiController($formatService);
         $controller->store();
         break;
+
+    case 'api-register':
+        $authApiController->register();
+        break;
+
+    case 'api-login':
+        $authApiController->login();
+        break;
+
+    case 'api-logout':
+        $authApiController->logout();
+        break;
+
 
     /*
     |--------------------------------------------------------------------------

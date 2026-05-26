@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'hsumyatnoe/medialibrary',
-        'pretty_version' => 'dev-master',
-        'version' => 'dev-master',
-        'reference' => '7d7aba88f16fe3d0c08a9a5c4dee9eb582bdc8fd',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => '6d51ba8b2d16d6152de1b6927aff84a2933a49e1',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -20,9 +20,9 @@
             'dev_requirement' => false,
         ),
         'hsumyatnoe/medialibrary' => array(
-            'pretty_version' => 'dev-master',
-            'version' => 'dev-master',
-            'reference' => '7d7aba88f16fe3d0c08a9a5c4dee9eb582bdc8fd',
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => '6d51ba8b2d16d6152de1b6927aff84a2933a49e1',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

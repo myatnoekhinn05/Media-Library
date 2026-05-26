@@ -55,4 +55,28 @@ abstract class BaseController
     {
         return $_POST[$key] ?? $default;
     }
+
+    /**
+     * Check if user logged in
+     */
+    protected function isLoggedIn(): bool
+    {
+        return isset($_SESSION['user_id']);
+    }
+
+    /**
+     * Protect pages
+     */
+    protected function requireLogin(): void
+    {
+        if (!$this->isLoggedIn()) {
+
+            $_SESSION['error'] =
+                'Please login first!';
+
+            $this->redirect(
+                'index.php?page=login'
+            );
+        }
+    }
 }

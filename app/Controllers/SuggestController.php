@@ -6,7 +6,7 @@ use App\Services\FormatService;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-class SuggestController
+class SuggestController extends BaseController
 {
     private FormatService $formatService;
 
@@ -20,6 +20,7 @@ class SuggestController
      */
     public function index(): void
     {
+        $this->requireLogin();
         $pageTitle  = "Suggest a Media Item";
         $section    = "suggest";
         $hideSearch = true;
@@ -47,6 +48,7 @@ class SuggestController
      */
     private function handleForm(): array
     {
+
         $data = [
 
             'name' => trim(

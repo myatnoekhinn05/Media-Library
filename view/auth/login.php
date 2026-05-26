@@ -6,10 +6,15 @@ $hideSearch = true;
 
 require BASE_PATH . '/view/Layout/header.php';
 
+$errors = $_SESSION['errors'] ?? [];
+$old    = $_SESSION['old'] ?? [];
+
+unset($_SESSION['errors']);
+unset($_SESSION['old']);
+
 ?>
 
-<link rel="stylesheet" href="<?= BASE_URL ?>/css/register.css">
-
+<link rel="stylesheet" href="<?= BASE_URL ?>/css/auth.css">
 
 <div class="section page">
 
@@ -19,25 +24,25 @@ require BASE_PATH . '/view/Layout/header.php';
 
             <h2>Login</h2>
 
-            <!-- SUCCESS MESSAGE -->
+            <!-- SUCCESS -->
             <?php if (!empty($_SESSION['success'])): ?>
 
                 <div class="auth-message auth-success">
-                    <?= $_SESSION['success']; ?>
+                    <?= htmlspecialchars($_SESSION['success']) ?>
                 </div>
 
                 <?php unset($_SESSION['success']); ?>
 
             <?php endif; ?>
 
-            <!-- ERROR MESSAGE -->
-            <?php if (!empty($_SESSION['error'])): ?>
+            <!-- AUTH ERROR -->
+            <?php if (!empty($_SESSION['auth_error'])): ?>
 
                 <div class="auth-message auth-error">
-                    <?= $_SESSION['error']; ?>
+                    <?= htmlspecialchars($_SESSION['auth_error']) ?>
                 </div>
 
-                <?php unset($_SESSION['error']); ?>
+                <?php unset($_SESSION['auth_error']); ?>
 
             <?php endif; ?>
 
@@ -53,11 +58,20 @@ require BASE_PATH . '/view/Layout/header.php';
                     </label>
 
                     <input
-                        type="email"
+                        type="text"
                         name="email"
                         id="email"
                         placeholder="Enter your email"
-                        required>
+                        value="<?= htmlspecialchars($old['email'] ?? '') ?>">
+
+                    <!-- EMAIL ERROR -->
+                    <?php if (!empty($errors['email'])): ?>
+
+                        <small class="auth-error">
+                            <?= htmlspecialchars($errors['email']) ?>
+                        </small>
+
+                    <?php endif; ?>
 
                 </div>
 
@@ -72,21 +86,31 @@ require BASE_PATH . '/view/Layout/header.php';
                         type="password"
                         name="password"
                         id="password"
-                        placeholder="Enter your password"
-                        required>
+                        placeholder="Enter your password">
+
+                    <!-- PASSWORD ERROR -->
+                    <?php if (!empty($errors['password'])): ?>
+
+                        <small class="auth-error">
+                            <?= htmlspecialchars($errors['password']) ?>
+                        </small>
+
+                    <?php endif; ?>
 
                 </div>
 
-                <!-- SUBMIT -->
+                <!-- BUTTON -->
                 <button
                     type="submit"
                     class="auth-button">
+
                     Login
+
                 </button>
 
             </form>
 
-            <!-- REGISTER LINK -->
+            <!-- REGISTER -->
             <div class="auth-footer">
 
                 Don't have an account?

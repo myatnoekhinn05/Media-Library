@@ -344,3 +344,124 @@ ON People(fullname);
 
 CREATE INDEX idx_media_types_category
 ON Media_Types(category);
+
+--------------------------------------------
+-- User Repository 
+--------------------------------------------
+
+-- CREATE USER
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_create_user(
+    IN p_username VARCHAR(100),
+    IN p_email VARCHAR(255),
+    IN p_password VARCHAR(255)
+)
+BEGIN
+
+    INSERT INTO users (
+        username,
+        email,
+        password
+    )
+    VALUES (
+        p_username,
+        p_email,
+        p_password
+    );
+
+END $$
+
+DELIMITER ;
+
+-- GET USER BY ID
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_get_user_by_id(
+    IN p_user_id INT
+)
+BEGIN
+
+    SELECT *
+    FROM users
+    WHERE user_id = p_user_id
+    LIMIT 1;
+
+END $$
+
+DELIMITER ;
+
+-- GET ALL USERS
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_get_all_users(
+    IN p_limit INT,
+    IN p_offset INT
+)
+BEGIN
+
+    SELECT *
+    FROM users
+    LIMIT p_limit OFFSET p_offset;
+
+END $$
+
+DELIMITER ;
+
+-- FIND USER BY EMAIL
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_find_user_by_email(
+    IN p_email VARCHAR(255)
+)
+BEGIN
+
+    SELECT *
+    FROM users
+    WHERE email = p_email
+    LIMIT 1;
+
+END $$
+
+DELIMITER ;
+
+-- Update User
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_update_user(
+    IN p_user_id INT,
+    IN p_username VARCHAR(100),
+    IN p_email VARCHAR(255)
+)
+BEGIN
+
+    UPDATE users
+    SET
+        username = p_username,
+        email = p_email
+    WHERE user_id = p_user_id;
+
+END $$
+
+DELIMITER ;
+
+-- DELETE USER
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_delete_user(
+    IN p_user_id INT
+)
+BEGIN
+
+    DELETE FROM users
+    WHERE user_id = p_user_id;
+
+END $$
+
+DELIMITER ;

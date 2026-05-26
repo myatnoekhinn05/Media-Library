@@ -2,44 +2,159 @@
 
 namespace App\Services;
 
-use App\Repositories\UserRepository;
-use App\Interfaces\UserRepositoryInterface;
 use App\Models\User;
+use App\Interfaces\UserRepositoryInterface;
+use App\Services\ValidatorService;
 
-class UserService
+class UserService extends BaseService
 {
     private UserRepositoryInterface $userRepo;
+    private Validator $validator;
 
-    public function __construct(UserRepositoryInterface $userRepo)
-    {
+    public function __construct(
+        UserRepositoryInterface $userRepo,
+        Validator $validator
+    ) {
         $this->userRepo = $userRepo;
+        $this->validator = $validator;
     }
 
-    /** Register new user */
-    public function register(string $username, string $email, string $hashedPassword): bool
+    /**
+     * Register User
+     */
+    public function register(array $data): array
     {
-        // Check if email already exists
-        if ($this->userRepo->findByEmail($email)) {
-            return false;
+        /*
+        |--------------------------------------------------------------------------
+        | VALIDATION (SRP kept inside ValidatorService)
+        |--------------------------------------------------------------------------
+        */
+        if (
+            !$this->validator->validate($data, User::rules())
+        ) {
+            return [
+                'success' => false,
+                'errors' => $this->validator->errors()
+            ];
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | BUSINESS RULE: EMAIL EXISTS
+        |--------------------------------------------------------------------------
+        */
+        if ($this->userRepo->findByEmail($data['email'])) {
+            return [
+                'success' => false,
+                'errors' => [
+                    'email' => 'Email already exists'
+                ]
+            ];
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | CREATE USER ENTITY
+        |--------------------------------------------------------------------------
+        */
         $user = new User();
-        $user->username = $username;
-        $user->email = $email;
-        $user->password = $hashedPassword;
+        $user->username = $data['username'];
+        $user->email = $data['email'];
+        $user->password = password_hash(
+            $data['password'],
+            PASSWORD_DEFAULT
+        );
 
-        return $this->userRepo->create($user);
-    }
-
-    /** Login user */
-    public function login(string $email, string $password): ?User
-    {
-        $user = $this->userRepo->findByEmail($email);
-
-        if ($user && password_verify($password, $user->password)) {
-            return $user;
+        /*
+        |--------------------------------------------------------------------------
+        | SAVE USER
+        |--------------------------------------------------------------------------
+        */
+        if (!$this->userRepo->create($user)) {
+            return [
+                'success' => false,
+                'errors' => [
+                    'general' => 'Registration failed'
+                ]
+            ];
         }
 
-        return null;
+        return [
+            'success' => true
+        ];
+    }
+
+    /*
+|--------------------------------------------------------------------------
+| LOGIN USER
+|--------------------------------------------------------------------------
+*/
+    public function login(array $data): array
+    {
+        /*
+    |--------------------------------------------------------------------------
+    | VALIDATE LOGIN DATA
+    |--------------------------------------------------------------------------
+    */
+        $isValid = $this->validator->validate(
+            $data,
+            User::loginRules()
+        );
+
+        if (!$isValid) {
+
+            return [
+                'success' => false,
+                'errors' => $this->validator->errors()
+            ];
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | FIND USER BY EMAIL
+    |--------------------------------------------------------------------------
+    */
+        $user = $this->userRepo
+            ->findByEmail($data['email']);
+
+        if (!$user) {
+
+            return [
+                'success' => false,
+                'errors' => [
+                    'email' => 'Email not found'
+                ]
+            ];
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | VERIFY PASSWORD
+    |--------------------------------------------------------------------------
+    */
+        if (
+            !password_verify(
+                $data['password'],
+                $user->password
+            )
+        ) {
+
+            return [
+                'success' => false,
+                'errors' => [
+                    'password' => 'Incorrect password'
+                ]
+            ];
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | LOGIN SUCCESS
+    |--------------------------------------------------------------------------
+    */
+        return [
+            'success' => true,
+            'user' => $user
+        ];
     }
 }

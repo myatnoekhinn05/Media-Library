@@ -28,9 +28,7 @@
 }
 
 .auth-error {
-    background: #fdeaea;
-    color: #b42318;
-    border: 1px solid #f5c2c7;
+    color: red;
 }
 
 .auth-group {
@@ -89,4 +87,8 @@
 
 .auth-footer a:hover {
     text-decoration: underline;
+}
+
+.error {
+    color: red;
 }

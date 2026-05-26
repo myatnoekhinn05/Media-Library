@@ -24,6 +24,7 @@ class CatalogController extends BaseController
      */
     public function home(): void
     {
+        $this->requireLogin();
         $data = $this->catalogService->getHomePageData();
 
         // Extract variables for view
@@ -37,6 +38,7 @@ class CatalogController extends BaseController
      */
     public function index(): void
     {
+        $this->requireLogin();
         $data = $this->catalogService->getCatalogPage($_GET);
 
         // Make variables available in view
