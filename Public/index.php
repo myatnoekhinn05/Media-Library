@@ -11,7 +11,7 @@ use App\Repositories\UserRepository;
 use App\Services\CatalogService;
 use App\Services\FormatService;
 use App\Services\UserService;
-use App\Services\Validator;
+
 
 use App\Controllers\CatalogController;
 use App\Controllers\DetailsController;
@@ -22,6 +22,11 @@ use App\Controllers\Api\CatalogApiController;
 use App\Controllers\Api\DetailsApiController;
 use App\Controllers\Api\SuggestApiController;
 use App\Controllers\Api\AuthApiController;
+
+
+use App\Validation\Validator;
+
+
 
 /*
 |--------------------------------------------------------------------------

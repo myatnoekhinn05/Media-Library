@@ -9,5 +9,5 @@ extends BaseRepositoryInterface
 {
     public function findByEmail(
         string $email
-    ): ?User;
+    ): array;
 }

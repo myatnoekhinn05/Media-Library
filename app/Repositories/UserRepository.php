@@ -8,10 +8,14 @@ use PDO;
 use App\Models\User;
 use App\Interfaces\UserRepositoryInterface;
 
-class UserRepository
-extends BaseRepository
-implements UserRepositoryInterface
+class UserRepository extends BaseRepository implements UserRepositoryInterface
 {
+    /*
+    |--------------------------------------------------------------------------
+    | GET ALL USERS
+    |--------------------------------------------------------------------------
+    */
+
     public function getAll(
         ?int $limit = 10,
         int $offset = 0
@@ -21,75 +25,65 @@ implements UserRepositoryInterface
             "CALL sp_get_all_users(:limit, :offset)"
         );
 
-        $stmt->bindValue(
-            ':limit',
-            $limit,
-            PDO::PARAM_INT
-        );
-
-        $stmt->bindValue(
-            ':offset',
-            $offset,
-            PDO::PARAM_INT
-        );
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $users = [];
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $users[] = $this->mapUser($row);
+        }
+
+        $stmt->closeCursor();
+
+        return $users;
     }
 
-    public function getById(
-        int $id
-    ): array {
+    /*
+    |--------------------------------------------------------------------------
+    | GET USER BY ID
+    |--------------------------------------------------------------------------
+    */
 
-        $result = $this->db->prepare(
-            "CALL sp_get_item_full_detail(?)"
+    public function getById(int $id): array
+    {
+        $stmt = $this->db->prepare(
+            "CALL sp_get_user_by_id(:id)"
         );
 
-        $result->bindParam(
-            1,
-            $id,
-            PDO::PARAM_INT
-        );
+        $stmt->execute([
+            ':id' => $id
+        ]);
 
-        $result->execute();
+        $data = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $item = $result->fetch(PDO::FETCH_ASSOC);
+        $stmt->closeCursor();
 
-        if ($item === false) {
-            $result->closeCursor();
+        if (!$data) {
             return [];
         }
 
-        $result->nextRowset();
-
-        while ($row = $result->fetch(PDO::FETCH_ASSOC)) {
-
-            $role = strtolower($row['role']);
-
-            $item[$role][] = $row['fullname'];
-        }
-
-        $result->closeCursor();
-
-        return $item;
+        return $this->mapUser($data);
     }
-    public function create(
-        User $user
-    ): bool {
 
+    /*
+    |--------------------------------------------------------------------------
+    | CREATE USER----------------------------------
+    */
+
+
+    public function create(User $user): bool
+    {
         $stmt = $this->db->prepare(
-            "CALL sp_create_user(
-                :username,
-                :email,
-                :password
-            )"
+            "CALL sp_create_user(:username, :email, :password)"
         );
 
         $result = $stmt->execute([
-            ':username' => $user->username,
-            ':email' => $user->email,
-            ':password' => $user->password
+            ':username' => $user->getUsername(),
+            ':email' => $user->getEmail(),
+            ':password' => $user->getPassword()
         ]);
 
         $stmt->closeCursor();
@@ -97,23 +91,22 @@ implements UserRepositoryInterface
         return $result;
     }
 
-    public function update(
-        int $id,
-        User $user
-    ): bool {
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE USER
+    |--------------------------------------------------------------------------
+    */
 
+    public function update(int $id, User $user): bool
+    {
         $stmt = $this->db->prepare(
-            "CALL sp_update_user(
-                :id,
-                :username,
-                :email
-            )"
+            "CALL sp_update_user(:id, :username, :email)"
         );
 
         $result = $stmt->execute([
             ':id' => $id,
-            ':username' => $user->username,
-            ':email' => $user->email
+            ':username' => $user->getUsername(),
+            ':email' => $user->getEmail()
         ]);
 
         $stmt->closeCursor();
@@ -121,10 +114,14 @@ implements UserRepositoryInterface
         return $result;
     }
 
-    public function delete(
-        int $id
-    ): bool {
+    /*
+    |--------------------------------------------------------------------------
+    | DELETE USER
+    |--------------------------------------------------------------------------
+    */
 
+    public function delete(int $id): bool
+    {
         $stmt = $this->db->prepare(
             "CALL sp_delete_user(:id)"
         );
@@ -138,10 +135,14 @@ implements UserRepositoryInterface
         return $result;
     }
 
-    public function findByEmail(
-        string $email
-    ): ?User {
+    /*
+    |--------------------------------------------------------------------------
+    | FIND USER BY EMAIL
+    |--------------------------------------------------------------------------
+    */
 
+    public function findByEmail(string $email): array
+    {
         $stmt = $this->db->prepare(
             "CALL sp_find_user_by_email(:email)"
         );
@@ -155,23 +156,25 @@ implements UserRepositoryInterface
         $stmt->closeCursor();
 
         if (!$data) {
-            return null;
+            return [];
         }
 
         return $this->mapUser($data);
     }
 
-    private function mapUser(
-        array $data
-    ): User {
+    /*
+    |--------------------------------------------------------------------------
+    | MAP DATABASE ROW → USER ENTITY
+    |--------------------------------------------------------------------------
+    */
 
-        $user = new User();
-
-        $user->user_id = (int)$data['user_id'];
-        $user->username = $data['username'];
-        $user->email = $data['email'];
-        $user->password = $data['password'];
-
-        return $user;
+    private function mapUser(array $data): array
+    {
+        return [
+            'user_id'  => $data['user_id'] ?? null,
+            'username' => $data['username'] ?? null,
+            'email'    => $data['email'] ?? null,
+            'password' => $data['password'] ?? null, // REQUIRED FOR LOGIN
+        ];
     }
 }

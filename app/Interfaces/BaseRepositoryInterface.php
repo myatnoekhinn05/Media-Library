@@ -11,5 +11,5 @@ interface BaseRepositoryInterface
 
     public function getById(
         int $id
-    ): array;
+    ): mixed;
 }

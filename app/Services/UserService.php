@@ -1,12 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Models\User;
+use App\Validation\Validator;
 use App\Interfaces\UserRepositoryInterface;
-use App\Services\ValidatorService;
+use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\LoginRequest;
 
-class UserService extends BaseService
+class UserService
 {
     private UserRepositoryInterface $userRepo;
     private Validator $validator;
@@ -19,142 +23,83 @@ class UserService extends BaseService
         $this->validator = $validator;
     }
 
-    /**
-     * Register User
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | REGISTER
+    |--------------------------------------------------------------------------
+    */
+
     public function register(array $data): array
     {
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDATION (SRP kept inside ValidatorService)
-        |--------------------------------------------------------------------------
-        */
-        if (
-            !$this->validator->validate($data, User::rules())
-        ) {
+        if (!$this->validator->validate($data, RegisterRequest::rules())) {
             return [
                 'success' => false,
                 'errors' => $this->validator->errors()
             ];
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | BUSINESS RULE: EMAIL EXISTS
-        |--------------------------------------------------------------------------
-        */
-        if ($this->userRepo->findByEmail($data['email'])) {
+        $existingUser = $this->userRepo->findByEmail($data['email']);
+
+        if (!empty($existingUser)) {
             return [
                 'success' => false,
-                'errors' => [
-                    'email' => 'Email already exists'
-                ]
+                'errors' => ['email' => 'Email already exists']
             ];
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | CREATE USER ENTITY
-        |--------------------------------------------------------------------------
-        */
-        $user = new User();
-        $user->username = $data['username'];
-        $user->email = $data['email'];
-        $user->password = password_hash(
-            $data['password'],
-            PASSWORD_DEFAULT
+        $user = new User(
+            $data['username'],
+            $data['email']
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | SAVE USER
-        |--------------------------------------------------------------------------
-        */
-        if (!$this->userRepo->create($user)) {
-            return [
-                'success' => false,
-                'errors' => [
-                    'general' => 'Registration failed'
-                ]
-            ];
-        }
+        $user->changePassword($data['password']);
+
+        $created = $this->userRepo->create($user);
 
         return [
-            'success' => true
+            'success' => $created
         ];
     }
 
     /*
-|--------------------------------------------------------------------------
-| LOGIN USER
-|--------------------------------------------------------------------------
-*/
-    public function login(array $data): array
-    {
-        /*
     |--------------------------------------------------------------------------
-    | VALIDATE LOGIN DATA
+    | LOGIN
     |--------------------------------------------------------------------------
     */
-        $isValid = $this->validator->validate(
-            $data,
-            User::loginRules()
-        );
 
-        if (!$isValid) {
-
+    public function login(array $data): array
+    {
+        if (!$this->validator->validate($data, LoginRequest::rules())) {
             return [
                 'success' => false,
                 'errors' => $this->validator->errors()
             ];
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | FIND USER BY EMAIL
-    |--------------------------------------------------------------------------
-    */
-        $user = $this->userRepo
-            ->findByEmail($data['email']);
+        $user = $this->userRepo->findByEmail($data['email']);
 
-        if (!$user) {
-
+        if (empty($user)) {
             return [
                 'success' => false,
-                'errors' => [
-                    'email' => 'Email not found'
-                ]
+                'errors' => ['email' => 'Email not found']
             ];
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | VERIFY PASSWORD
-    |--------------------------------------------------------------------------
-    */
-        if (
-            !password_verify(
-                $data['password'],
-                $user->password
-            )
-        ) {
-
+        // IMPORTANT: array-based password check
+        if (!password_verify($data['password'], $user['password'] ?? '')) {
             return [
                 'success' => false,
-                'errors' => [
-                    'password' => 'Incorrect password'
-                ]
+                'errors' => ['password' => 'Incorrect password']
             ];
         }
 
-        /*
-    |--------------------------------------------------------------------------
-    | LOGIN SUCCESS
-    |--------------------------------------------------------------------------
-    */
         return [
             'success' => true,
-            'user' => $user
+            'user' => [
+                'user_id' => $user['user_id'] ?? null,
+                'username' => $user['username'] ?? null,
+                'email' => $user['email'] ?? null
+            ]
         ];
     }
 }
