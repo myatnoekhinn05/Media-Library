@@ -1,219 +1,72 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Repositories;
 
-use PDO;
 use App\Interfaces\CatalogRepositoryInterface;
+use PDO;
 
-class CatalogRepository
-extends BaseRepository
-implements CatalogRepositoryInterface
+class CatalogRepository extends BaseRepository implements CatalogRepositoryInterface
 {
-    public function getAll(
-        ?int $limit = null,
-        int $offset = 0
-    ): array {
+    protected ?string $getAllProcedure = 'sp_get_full_catalog';
 
-        $result = $this->db->prepare(
-            "CALL sp_get_full_catalog(?, ?)"
-        );
+    protected ?string $getByIdProcedure = 'sp_get_item_full_detail';
 
-        $result->bindParam(
-            1,
-            $limit,
-            $limit === null
-                ? PDO::PARAM_NULL
-                : PDO::PARAM_INT
-        );
+    public function count(array $filters = []): int
+    {
+        $stmt = $this->db->prepare("
+            CALL sp_search_catalog_count(:search, :category)
+        ");
 
-        $result->bindParam(
-            2,
-            $offset,
-            PDO::PARAM_INT
-        );
+        $stmt->execute([
+            ':search' => $filters['search'] ?? null,
+            ':category' => $filters['category'] ?? null
+        ]);
 
-        $result->execute();
+        $count = (int) $stmt->fetchColumn();
 
-        $catalog = $result->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->closeCursor();
 
-        $result->closeCursor();
-
-        return $catalog;
+        return $count;
     }
 
-    public function count(
-        array $filters = []
-    ): int {
+    public function getCategoryCatalog(string $category, ?int $limit = null, int $offset = 0): array
+    {
+        $stmt = $this->db->prepare("CALL sp_get_catalog(:category, :limit, :offset)");
 
-        $search = $filters['search'] ?? null;
-        $category = $filters['category'] ?? null;
+        $stmt->execute([
+            ':category' => $category,
+            ':limit' => $limit,
+            ':offset' => $offset
+        ]);
 
-        $result = $this->db->prepare(
-            "CALL sp_search_catalog_count(
-                :search,
-                :category
-            )"
-        );
+        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->closeCursor();
 
-        $result->bindValue(
-            ':search',
-            $search,
-            $search === null
-                ? PDO::PARAM_NULL
-                : PDO::PARAM_STR
-        );
-
-        $result->bindValue(
-            ':category',
-            $category,
-            $category === null
-                ? PDO::PARAM_NULL
-                : PDO::PARAM_STR
-        );
-
-        $result->execute();
-
-        $count = $result->fetchColumn();
-
-        $result->nextRowset();
-        $result->closeCursor();
-
-        return (int) $count;
+        return $data;
     }
 
-    public function getCategoryCatalog(
-        string $category,
-        ?int $limit = null,
-        int $offset = 0
-    ): array {
+    public function getSearchCatalog(?string $search, ?string $category = null, ?int $limit = null, int $offset = 0): array
+    {
+        $stmt = $this->db->prepare("CALL sp_search_catalog(:search, :category, :limit, :offset)");
 
-        $result = $this->db->prepare(
-            "CALL sp_get_catalog(?, ?, ?)"
-        );
+        $stmt->execute([
+            ':search' => $search,
+            ':category' => $category,
+            ':limit' => $limit,
+            ':offset' => $offset
+        ]);
 
-        $result->bindParam(
-            1,
-            $category,
-            PDO::PARAM_STR
-        );
+        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->closeCursor();
 
-        $result->bindParam(
-            2,
-            $limit,
-            $limit === null
-                ? PDO::PARAM_NULL
-                : PDO::PARAM_INT
-        );
-
-        $result->bindParam(
-            3,
-            $offset,
-            PDO::PARAM_INT
-        );
-
-        $result->execute();
-
-        $catalog = $result->fetchAll(PDO::FETCH_ASSOC);
-
-        $result->closeCursor();
-
-        return $catalog;
-    }
-
-    public function getSearchCatalog(
-        ?string $search,
-        ?string $category = null,
-        ?int $limit = null,
-        int $offset = 0
-    ): array {
-
-        $result = $this->db->prepare(
-            "CALL sp_search_catalog(?, ?, ?, ?)"
-        );
-
-        $result->bindValue(
-            1,
-            $search,
-            $search === null
-                ? PDO::PARAM_NULL
-                : PDO::PARAM_STR
-        );
-
-        $result->bindValue(
-            2,
-            $category,
-            $category === null
-                ? PDO::PARAM_NULL
-                : PDO::PARAM_STR
-        );
-
-        $result->bindValue(
-            3,
-            $limit,
-            $limit === null
-                ? PDO::PARAM_NULL
-                : PDO::PARAM_INT
-        );
-
-        $result->bindValue(
-            4,
-            $offset,
-            PDO::PARAM_INT
-        );
-
-        $result->execute();
-
-        $catalog = $result->fetchAll(PDO::FETCH_ASSOC);
-
-        $result->nextRowset();
-        $result->closeCursor();
-
-        return $catalog;
+        return $data;
     }
 
     public function getRandomCatalog(): array
     {
-        $result = $this->db->query(
-            "SELECT * FROM view_random"
-        );
-
-        return $result->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = $this->db->query("SELECT * FROM view_random");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-
-    public function getById(
-    int $id
-): array {
-
-    $result = $this->db->prepare(
-        "CALL sp_get_item_full_detail(?)"
-    );
-
-    $result->bindParam(
-        1,
-        $id,
-        PDO::PARAM_INT
-    );
-
-    $result->execute();
-
-    $item = $result->fetch(PDO::FETCH_ASSOC);
-
-    if ($item === false) {
-        $result->closeCursor();
-        return [];
-    }
-
-    $result->nextRowset();
-
-    while ($row = $result->fetch(PDO::FETCH_ASSOC)) {
-
-        $role = strtolower($row['role']);
-
-        $item[$role][] = $row['fullname'];
-    }
-
-    $result->closeCursor();
-
-    return $item;
-}
 }

@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\User;
 use App\Validation\Validator;
 use App\Interfaces\UserRepositoryInterface;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\LoginRequest;
 
-class UserService
+class UserService extends BaseService
 {
     private UserRepositoryInterface $userRepo;
     private Validator $validator;
@@ -23,12 +22,6 @@ class UserService
         $this->validator = $validator;
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | REGISTER
-    |--------------------------------------------------------------------------
-    */
-
     public function register(array $data): array
     {
         if (!$this->validator->validate($data, RegisterRequest::rules())) {
@@ -38,34 +31,25 @@ class UserService
             ];
         }
 
-        $existingUser = $this->userRepo->findByEmail($data['email']);
+        $existing = $this->userRepo->findByEmail($data['email']);
 
-        if (!empty($existingUser)) {
+        if (!empty($existing)) {
             return [
                 'success' => false,
                 'errors' => ['email' => 'Email already exists']
             ];
         }
 
-        $user = new User(
-            $data['username'],
-            $data['email']
-        );
-
-        $user->changePassword($data['password']);
-
-        $created = $this->userRepo->create($user);
+        $created = $this->userRepo->create([
+            'username' => $data['username'],
+            'email' => $data['email'],
+            'password' => password_hash($data['password'], PASSWORD_BCRYPT)
+        ]);
 
         return [
             'success' => $created
         ];
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | LOGIN
-    |--------------------------------------------------------------------------
-    */
 
     public function login(array $data): array
     {
@@ -85,8 +69,7 @@ class UserService
             ];
         }
 
-        // IMPORTANT: array-based password check
-        if (!password_verify($data['password'], $user['password'] ?? '')) {
+        if (!password_verify($data['password'], $user['password'])) {
             return [
                 'success' => false,
                 'errors' => ['password' => 'Incorrect password']
@@ -96,9 +79,9 @@ class UserService
         return [
             'success' => true,
             'user' => [
-                'user_id' => $user['user_id'] ?? null,
-                'username' => $user['username'] ?? null,
-                'email' => $user['email'] ?? null
+                'user_id' => $user['user_id'],
+                'username' => $user['username'],
+                'email' => $user['email']
             ]
         ];
     }

@@ -35,7 +35,7 @@
                     <?php if (strtolower($item["category"]) === "books"): ?>
                         <tr>
                             <th>Authors</th>
-                            <td><?= implode(", ", $item["author"] ?? []); ?></td>
+                            <td><?= implode(", ", $item["authors"] ?? []); ?></td>
                         </tr>
                         <tr>
                             <th>Publisher</th>
@@ -49,17 +49,18 @@
                     <?php elseif (strtolower($item["category"]) === "movies"): ?>
                         <tr>
                             <th>Director</th>
-                            <td><?= implode(", ", $item["director"] ?? []); ?></td>
+                            <td><?= implode(", ", $item["directors"] ?? []); ?></td>
                         </tr>
+
                         <tr>
                             <th>Stars</th>
-                            <td><?= implode(", ", $item["star"] ?? []); ?></td>
+                            <td><?= implode(", ", $item["stars"] ?? []); ?></td>
                         </tr>
 
                     <?php elseif (strtolower($item["category"]) === "music"): ?>
                         <tr>
                             <th>Artist</th>
-                            <td><?= implode(", ", $item["artist"] ?? []); ?></td>
+                            <td><?= implode(", ", $item["artists"] ?? []); ?></td>
                         </tr>
                     <?php endif; ?>
                 </table>
