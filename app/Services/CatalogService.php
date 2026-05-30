@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
+use App\Exceptions\NotFoundException;
+use App\Exceptions\ValidationException;
 use App\Interfaces\CatalogRepositoryInterface;
 
 class CatalogService extends BaseService
@@ -14,6 +18,11 @@ class CatalogService extends BaseService
         $this->repo = $repo;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | HOME PAGE
+    |--------------------------------------------------------------------------
+    */
     public function getHomePageData(): array
     {
         return [
@@ -23,6 +32,11 @@ class CatalogService extends BaseService
         ];
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | CATALOG PAGE
+    |--------------------------------------------------------------------------
+    */
     public function getCatalogPage(
         array $queryParams
     ): array {
@@ -64,33 +78,67 @@ class CatalogService extends BaseService
         ];
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATE CATEGORY
+    |--------------------------------------------------------------------------
+    */
     private function getCategory(
         array $params
     ): ?string {
 
-        $category = $params['cat'] ?? null;
+        $category = trim($params['cat'] ?? '');
 
-        $allowed = ['books', 'movies', 'music'];
+        if ($category === '') {
+            return null;
+        }
 
-        return (
-            $category !== null
-            && in_array($category, $allowed, true)
-        )
-            ? $category
-            : null;
+        $allowed = [
+            'books',
+            'movies',
+            'music'
+        ];
+
+        if (!in_array($category, $allowed, true)) {
+
+            throw new ValidationException([
+                'category' => 'Invalid category selected.'
+            ]);
+        }
+
+        return $category;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | SEARCH TERM
+    |--------------------------------------------------------------------------
+    */
     private function getSearchTerm(
         array $params
     ): ?string {
 
         $search = trim($params['s'] ?? '');
 
-        return $search !== ''
-            ? $search
-            : null;
+        if ($search === '') {
+            return null;
+        }
+
+        if (mb_strlen($search) > 100) {
+
+            throw new ValidationException([
+                'search' => 'Search term is too long.'
+            ]);
+        }
+
+        return $search;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD CATALOG DATA
+    |--------------------------------------------------------------------------
+    */
     private function loadCatalogData(
         ?string $section,
         ?string $search,
@@ -99,6 +147,7 @@ class CatalogService extends BaseService
     ): array {
 
         if ($search !== null && $section !== null) {
+
             return $this->repo->getSearchCatalog(
                 $search,
                 $section,
@@ -108,6 +157,7 @@ class CatalogService extends BaseService
         }
 
         if ($search !== null) {
+
             return $this->repo->getSearchCatalog(
                 $search,
                 null,
@@ -117,6 +167,7 @@ class CatalogService extends BaseService
         }
 
         if ($section !== null) {
+
             return $this->repo->getCategoryCatalog(
                 $section,
                 $limit,
@@ -130,6 +181,11 @@ class CatalogService extends BaseService
         );
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | PAGE TITLE
+    |--------------------------------------------------------------------------
+    */
     private function buildPageTitle(
         ?string $section
     ): string {
@@ -139,10 +195,31 @@ class CatalogService extends BaseService
             : 'Full Catalog';
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | GET ITEM BY ID
+    |--------------------------------------------------------------------------
+    */
     public function getById(
         int $id
-    ): ?array {
+    ): array {
 
-        return $this->repo->getById($id);
+        if ($id <= 0) {
+
+            throw new ValidationException([
+                'id' => 'Invalid catalog item ID.'
+            ]);
+        }
+
+        $item = $this->repo->getById($id);
+
+        if (!$item) {
+
+            throw new NotFoundException(
+                'Catalog item not found.'
+            );
+        }
+
+        return $item;
     }
 }

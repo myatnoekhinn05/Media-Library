@@ -4,189 +4,94 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Exceptions\ValidationException;
+use App\Mappers\UserMapper;
 use App\Services\UserService;
 
-class AuthController
+class AuthController extends BaseController
 {
     private UserService $userService;
 
-    public function __construct(
-        UserService $userService
-    ) {
+    public function __construct(UserService $userService)
+    {
         $this->userService = $userService;
     }
 
     /*
     |--------------------------------------------------------------------------
-    | SHOW REGISTER PAGE
+    | REGISTER PAGE
     |--------------------------------------------------------------------------
     */
-
     public function showRegister(): void
     {
-        require BASE_PATH . '/view/auth/register.php';
+        require BASE_PATH . '/view/Auth/register.php';
     }
 
     /*
     |--------------------------------------------------------------------------
-    | REGISTER SUBMIT
+    | REGISTER
     |--------------------------------------------------------------------------
     */
-
     public function register(): void
     {
-        $data = [
+        try {
+            $dto = UserMapper::arrayToRegisterDTO($_POST);
 
-            'username' => trim(
-                $_POST['username'] ?? ''
-            ),
+            $this->userService->register($dto);
 
-            'email' => trim(
-                $_POST['email'] ?? ''
-            ),
+            $_SESSION['success'] = 'Registration successful';
+            $this->redirect(BASE_URL . '/Public/index.php?page=login');
+        } catch (ValidationException $e) {
 
-            'password' => trim(
-                $_POST['password'] ?? ''
-            )
-        ];
+            $_SESSION['errors'] = $e->getErrors();
+            $_SESSION['old'] = [
+                'username' => $_POST['username'] ?? '',
+                'email' => $_POST['email'] ?? ''
+            ];
 
-        $result = $this->userService
-            ->register($data);
-
-        /*
-        |--------------------------------------------------------------------------
-        | VALIDATION FAILED
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$result['success']) {
-
-            $_SESSION['errors']
-                = $result['errors'];
-
-            $_SESSION['old']
-                = $data;
-
-            header(
-                'Location: '
-                    . BASE_URL
-                    . '/Public/index.php?page=register'
-            );
-
-            exit;
+            $this->redirect(BASE_URL . '/Public/index.php?page=register');
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | SUCCESS
-        |--------------------------------------------------------------------------
-        */
-
-        $_SESSION['success']
-            = 'Registration successful';
-
-        header(
-            'Location: '
-                . BASE_URL
-                . '/Public/index.php?page=login'
-        );
-
-        exit;
     }
 
     /*
     |--------------------------------------------------------------------------
-    | SHOW LOGIN PAGE
+    | LOGIN PAGE
     |--------------------------------------------------------------------------
     */
-
     public function showLogin(): void
     {
-        require BASE_PATH . '/view/auth/login.php';
+        require BASE_PATH . '/view/Auth/login.php';
     }
 
     /*
     |--------------------------------------------------------------------------
-    | LOGIN SUBMIT
+    | LOGIN
     |--------------------------------------------------------------------------
     */
-
     public function login(): void
     {
-        $data = [
+        $dto = UserMapper::arrayToLoginDTO($_POST);
 
-            'email' => trim(
-                $_POST['email'] ?? ''
-            ),
+        $response = $this->userService->login($dto);
 
-            'password' => trim(
-                $_POST['password'] ?? ''
-            )
-        ];
+        if (!$response['success']) {
 
-        $result = $this->userService
-            ->login($data);
+            $_SESSION['errors'] = $response['errors'] ?? [];
+            $_SESSION['old'] = ['email' => $_POST['email'] ?? ''];
+            $_SESSION['error'] = $response['message'];
 
-        /*
-        |--------------------------------------------------------------------------
-        | LOGIN FAILED
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$result['success']) {
-
-            $_SESSION['errors']
-                = $result['errors'];
-
-            $_SESSION['old']
-                = $data;
-
-            header(
-                'Location: '
-                    . BASE_URL
-                    . '/Public/index.php?page=login'
-            );
-
-            exit;
+            $this->redirect(BASE_URL . '/Public/index.php?page=login');
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | LOGIN SUCCESS
-        |--------------------------------------------------------------------------
-        */
+        $user = $response['data'];
 
-        $user = $result['user'];
+        $this->setAuthSession($user);
 
-        /*
-        |--------------------------------------------------------------------------
-        | STORE SESSION
-        |--------------------------------------------------------------------------
-        */
+        session_regenerate_id(true);
 
-        $_SESSION['user_id']
-            = $user['user_id'];
+        $_SESSION['success'] = $response['message'];
 
-        $_SESSION['username']
-            = $user['username'];
-
-        /*
-        |--------------------------------------------------------------------------
-        | OPTIONAL:
-        | LOGIN FLAG
-        |--------------------------------------------------------------------------
-        */
-
-        $_SESSION['logged_in']
-            = true;
-
-        header(
-            'Location: '
-                . BASE_URL
-                . '/Public/index.php?page=home'
-        );
-
-        exit;
+        $this->redirect(BASE_URL . '/Public/index.php?page=home');
     }
 
     /*
@@ -194,31 +99,18 @@ class AuthController
     | LOGOUT
     |--------------------------------------------------------------------------
     */
-
     public function logout(): void
     {
-        /*
-        |--------------------------------------------------------------------------
-        | CLEAR SESSION
-        |--------------------------------------------------------------------------
-        */
-
         $_SESSION = [];
 
-        /*
-        |--------------------------------------------------------------------------
-        | DESTROY SESSION
-        |--------------------------------------------------------------------------
-        */
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
 
-        session_destroy();
+        session_start();
 
-        header(
-            'Location: '
-                . BASE_URL
-                . '/Public/index.php?page=login'
-        );
+        $_SESSION['success'] = 'Logged out successfully';
 
-        exit;
+        $this->redirect(BASE_URL . '/Public/index.php?page=login');
     }
 }

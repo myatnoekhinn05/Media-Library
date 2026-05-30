@@ -8,45 +8,45 @@
 
             <div class="media-picture">
                 <img
-                    src="<?= BASE_URL . '/' . htmlspecialchars($item['img']); ?>"
-                    alt="<?= htmlspecialchars($item["title"]); ?>" />
+                    src="<?= BASE_URL . '/' . htmlspecialchars($item['img'] ?? ''); ?>"
+                    alt="<?= htmlspecialchars($item["title"] ?? ''); ?>" />
             </div>
             <div class="media-details">
-                <h1><?= htmlspecialchars($item["title"]); ?></h1>
+                <h1><?= htmlspecialchars($item["title"] ?? ''); ?></h1>
 
                 <table>
                     <tr>
                         <th>Category</th>
-                        <td><?= htmlspecialchars($item["category"]); ?></td>
+                        <td><?= htmlspecialchars($item["category"] ?? ''); ?></td>
                     </tr>
                     <tr>
                         <th>Genre</th>
-                        <td><?= htmlspecialchars($item["genre"]); ?></td>
+                        <td><?= htmlspecialchars($item["genre"] ?? ''); ?></td>
                     </tr>
                     <tr>
                         <th>Format</th>
-                        <td><?= htmlspecialchars($item["format"]); ?></td>
+                        <td><?= htmlspecialchars($item["format"] ?? ''); ?></td>
                     </tr>
                     <tr>
                         <th>Year</th>
-                        <td><?= htmlspecialchars($item["year"]); ?></td>
+                        <td><?= htmlspecialchars($item["year"] ?? ''); ?></td>
                     </tr>
 
-                    <?php if (strtolower($item["category"]) === "books"): ?>
+                    <?php if (strtolower($item["category"] ?? '') === "books"): ?>
                         <tr>
                             <th>Authors</th>
                             <td><?= implode(", ", $item["authors"] ?? []); ?></td>
                         </tr>
                         <tr>
                             <th>Publisher</th>
-                            <td><?= htmlspecialchars($item["publisher"]); ?></td>
+                            <td><?= htmlspecialchars($item["publisher"] ?? ''); ?></td>
                         </tr>
                         <tr>
                             <th>ISBN</th>
-                            <td><?= htmlspecialchars($item["isbn"]); ?></td>
+                            <td><?= htmlspecialchars($item["isbn"] ?? ''); ?></td>
                         </tr>
 
-                    <?php elseif (strtolower($item["category"]) === "movies"): ?>
+                    <?php elseif (strtolower($item["category"] ?? '') === "movies"): ?>
                         <tr>
                             <th>Director</th>
                             <td><?= implode(", ", $item["directors"] ?? []); ?></td>
@@ -57,7 +57,7 @@
                             <td><?= implode(", ", $item["stars"] ?? []); ?></td>
                         </tr>
 
-                    <?php elseif (strtolower($item["category"]) === "music"): ?>
+                    <?php elseif (strtolower($item["category"] ?? '') === "music"): ?>
                         <tr>
                             <th>Artist</th>
                             <td><?= implode(", ", $item["artists"] ?? []); ?></td>

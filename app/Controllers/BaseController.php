@@ -1,82 +1,81 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers;
 
-/**
- * Base Controller
- * Shared helper methods for all controllers
- */
-abstract class BaseController
+class BaseController
 {
-    /**
-     * Render a view file
-     */
-    protected function view(string $path, array $data = []): void
-    {
-        extract($data);
-
-        require BASE_PATH . '/view/' . $path . '.php';
-    }
-
-    /**
-     * Redirect helper
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | REDIRECT HELPER
+    |--------------------------------------------------------------------------
+    */
     protected function redirect(string $url): void
     {
-        header("Location: $url");
+        header('Location: ' . $url);
         exit;
     }
 
-    /**
-     * JSON response helper (for APIs)
-     */
-    protected function json(array $data, int $code = 200): void
+    /*
+    |--------------------------------------------------------------------------
+    | FLASH ERROR + OLD INPUT
+    |--------------------------------------------------------------------------
+    */
+    protected function withErrors(array $errors, array $old, string $url): void
     {
-        http_response_code($code);
+        $_SESSION['errors'] = $errors;
+        $_SESSION['old'] = $old;
 
-        header('Content-Type: application/json');
-
-        echo json_encode($data, JSON_PRETTY_PRINT);
-        exit;
+        $this->redirect($url);
     }
 
-    /**
-     * Get GET parameter safely
-     */
-    protected function get(string $key, $default = null)
+    /*
+    |--------------------------------------------------------------------------
+    | FLASH SUCCESS MESSAGE
+    |--------------------------------------------------------------------------
+    */
+    protected function withSuccess(string $message, string $url): void
     {
-        return $_GET[$key] ?? $default;
+        $_SESSION['success'] = $message;
+
+        $this->redirect($url);
     }
 
-    /**
-     * Get POST parameter safely
-     */
-    protected function post(string $key, $default = null)
+    /*
+    |--------------------------------------------------------------------------
+    | AUTH SESSION SET
+    |--------------------------------------------------------------------------
+    */
+    protected function setAuthSession(array $user): void
     {
-        return $_POST[$key] ?? $default;
+        $_SESSION['user_id'] = $user['user_id'];
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['logged_in'] = true;
     }
 
-    /**
-     * Check if user logged in
-     */
-    protected function isLoggedIn(): bool
-    {
-        return isset($_SESSION['user_id']);
-    }
-
-    /**
-     * Protect pages
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | REQUIRE LOGIN (FIX FOR YOUR ERROR)
+    |--------------------------------------------------------------------------
+    */
     protected function requireLogin(): void
     {
-        if (!$this->isLoggedIn()) {
+        if (empty($_SESSION['logged_in']) || empty($_SESSION['user_id'])) {
 
-            $_SESSION['error'] =
-                'Please login first!';
-
-            $this->redirect(
-                'index.php?page=login'
-            );
+            $_SESSION['auth_error'] = 'Please login first';
+            $this->redirect(BASE_URL . '/Public/index.php?page=login');
         }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOGOUT SESSION
+    |--------------------------------------------------------------------------
+    */
+    protected function logoutSession(): void
+    {
+        $_SESSION = [];
+        session_destroy();
     }
 }

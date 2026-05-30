@@ -431,19 +431,23 @@ DELIMITER ;
 
 -- Update User
 
+DROP PROCEDURE IF EXISTS sp_update_user;
+
 DELIMITER $$
 
 CREATE PROCEDURE sp_update_user(
     IN p_user_id INT,
     IN p_username VARCHAR(100),
-    IN p_email VARCHAR(255)
+    IN p_email VARCHAR(255),
+    IN p_password VARCHAR(255)
 )
 BEGIN
 
     UPDATE users
     SET
         username = p_username,
-        email = p_email
+        email = p_email,
+        password = p_password
     WHERE user_id = p_user_id;
 
 END $$

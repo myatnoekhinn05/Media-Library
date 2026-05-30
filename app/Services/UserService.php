@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Validation\Validator;
-use App\Interfaces\UserRepositoryInterface;
-use App\Http\Requests\RegisterRequest;
+use App\DTOs\LoginUserDTO;
+use App\DTOs\RegisterUserDTO;
+use App\DTOs\UserDTO;
+use App\Exceptions\DatabaseException;
+use App\Exceptions\ValidationException;
 use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
+use App\Interfaces\UserRepositoryInterface;
+use App\Mappers\UserMapper;
+use App\Validation\Validator;
 
 class UserService extends BaseService
 {
@@ -22,67 +28,116 @@ class UserService extends BaseService
         $this->validator = $validator;
     }
 
-    public function register(array $data): array
+    /*
+    |--------------------------------------------------------------------------
+    | REGISTER
+    |--------------------------------------------------------------------------
+    */
+    public function register(RegisterUserDTO $dto): void
     {
+        $data = [
+            'username' => $dto->username,
+            'email' => $dto->email,
+            'password' => $dto->password,
+            'confirm_password' => $dto->confirmPassword
+        ];
+
         if (!$this->validator->validate($data, RegisterRequest::rules())) {
-            return [
-                'success' => false,
-                'errors' => $this->validator->errors()
-            ];
+            throw new ValidationException(
+                $this->validator->errors()
+            );
         }
 
-        $existing = $this->userRepo->findByEmail($data['email']);
+        if ($this->userRepo->findByEmail($dto->email)) {
+            throw new ValidationException([
+                'email' => 'Email already exists'
+            ]);
+        }
 
-        if (!empty($existing)) {
-            return [
-                'success' => false,
-                'errors' => ['email' => 'Email already exists']
-            ];
+        if ($dto->password !== $dto->confirmPassword) {
+            throw new ValidationException([
+                'confirm_password' => 'Passwords do not match'
+            ]);
         }
 
         $created = $this->userRepo->create([
-            'username' => $data['username'],
-            'email' => $data['email'],
-            'password' => password_hash($data['password'], PASSWORD_BCRYPT)
+            'username' => $dto->username,
+            'email' => $dto->email,
+            'password' => password_hash(
+                $dto->password,
+                PASSWORD_BCRYPT
+            )
         ]);
 
-        return [
-            'success' => $created
-        ];
+        if (!$created) {
+            throw new DatabaseException(
+                'Registration failed'
+            );
+        }
     }
 
-    public function login(array $data): array
+    /*
+    |--------------------------------------------------------------------------
+    | LOGIN
+    |--------------------------------------------------------------------------
+    */
+    public function login(LoginUserDTO $dto): array
     {
-        if (!$this->validator->validate($data, LoginRequest::rules())) {
+        $data = [
+            'email' => $dto->email,
+            'password' => $dto->password
+        ];
+
+        if (
+            !$this->validator->validate(
+                $data,
+                LoginRequest::rules()
+            )
+        ) {
             return [
                 'success' => false,
+                'message' => 'Validation failed',
+                'data' => null,
                 'errors' => $this->validator->errors()
             ];
         }
 
-        $user = $this->userRepo->findByEmail($data['email']);
+        $user = $this->userRepo->findByEmail(
+            $dto->email
+        );
 
-        if (empty($user)) {
+        if (!$user) {
             return [
                 'success' => false,
-                'errors' => ['email' => 'Email not found']
+                'message' => 'Email not found',
+                'data' => null,
+                'errors' => [
+                    'email' => 'Email not found'
+                ]
             ];
         }
 
-        if (!password_verify($data['password'], $user['password'])) {
+        if (
+            !password_verify(
+                $dto->password,
+                $user['password']
+            )
+        ) {
             return [
                 'success' => false,
-                'errors' => ['password' => 'Incorrect password']
+                'message' => 'Incorrect password',
+                'data' => null,
+                'errors' => [
+                    'password' => 'Incorrect password'
+                ]
             ];
         }
 
         return [
             'success' => true,
-            'user' => [
-                'user_id' => $user['user_id'],
-                'username' => $user['username'],
-                'email' => $user['email']
-            ]
+            'message' => 'Login successful',
+            'data' => $user,
+            'errors' => []
         ];
     }
 }

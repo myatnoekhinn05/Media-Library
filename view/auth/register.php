@@ -22,7 +22,7 @@ require BASE_PATH . '/view/Layout/header.php';
             <?php if (!empty($_SESSION['success'])): ?>
 
                 <div class="auth-message auth-success">
-                    <?= $_SESSION['success']; ?>
+                    <?= htmlspecialchars($_SESSION['success']); ?>
                 </div>
 
                 <?php unset($_SESSION['success']); ?>
@@ -33,7 +33,7 @@ require BASE_PATH . '/view/Layout/header.php';
             <?php if (!empty($_SESSION['error'])): ?>
 
                 <div class="auth-message auth-error">
-                    <?= $_SESSION['error']; ?>
+                    <?= htmlspecialchars($_SESSION['error']); ?>
                 </div>
 
                 <?php unset($_SESSION['error']); ?>
@@ -64,7 +64,7 @@ require BASE_PATH . '/view/Layout/header.php';
                     <?php if (!empty($_SESSION['errors']['username'])): ?>
 
                         <small class="error">
-                            <?= $_SESSION['errors']['username']; ?>
+                            <?= htmlspecialchars($_SESSION['errors']['username']); ?>
                         </small>
 
                     <?php endif; ?>
@@ -91,7 +91,7 @@ require BASE_PATH . '/view/Layout/header.php';
                     <?php if (!empty($_SESSION['errors']['email'])): ?>
 
                         <small class="error">
-                            <?= $_SESSION['errors']['email']; ?>
+                            <?= htmlspecialchars($_SESSION['errors']['email']); ?>
                         </small>
 
                     <?php endif; ?>
@@ -115,7 +115,31 @@ require BASE_PATH . '/view/Layout/header.php';
                     <?php if (!empty($_SESSION['errors']['password'])): ?>
 
                         <small class="error">
-                            <?= $_SESSION['errors']['password']; ?>
+                            <?= htmlspecialchars($_SESSION['errors']['password']); ?>
+                        </small>
+
+                    <?php endif; ?>
+
+                </div>
+
+                <!-- CONFIRM PASSWORD -->
+                <div class="auth-group">
+
+                    <label for="confirm_password">
+                        Confirm Password
+                    </label>
+
+                    <input
+                        type="password"
+                        name="confirm_password"
+                        id="confirm_password"
+                        placeholder="Confirm your password">
+
+                    <!-- CONFIRM PASSWORD ERROR -->
+                    <?php if (!empty($_SESSION['errors']['confirm_password'])): ?>
+
+                        <small class="error">
+                            <?= htmlspecialchars($_SESSION['errors']['confirm_password']); ?>
                         </small>
 
                     <?php endif; ?>

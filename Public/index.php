@@ -1,8 +1,42 @@
 <?php
 
+declare(strict_types=1);
+
+/*
+|--------------------------------------------------------------------------
+| BASE PATH (MUST BE FIRST)
+|--------------------------------------------------------------------------
+*/
+define('BASE_PATH', dirname(__DIR__));
+
+/*
+|--------------------------------------------------------------------------
+| ERROR REPORTING
+|--------------------------------------------------------------------------
+*/
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
+
+/*
+|--------------------------------------------------------------------------
+| AUTOLOAD + CORE
+|--------------------------------------------------------------------------
+*/
+require_once BASE_PATH . '/vendor/autoload.php';
+require_once BASE_PATH . '/App/Core/Database.php';
+require_once BASE_PATH . '/App/Core/ErrorHandler.php';
+require_once BASE_PATH . '/inc/CustomPath.php';
+
+/*
+|--------------------------------------------------------------------------
+| USE STATEMENTS
+|--------------------------------------------------------------------------
+*/
+
 use Dotenv\Dotenv;
 
 use App\Core\Database;
+use App\Core\ErrorHandler;
 
 use App\Repositories\CatalogRepository;
 use App\Repositories\FormatRepository;
@@ -11,7 +45,6 @@ use App\Repositories\UserRepository;
 use App\Services\CatalogService;
 use App\Services\FormatService;
 use App\Services\UserService;
-
 
 use App\Controllers\CatalogController;
 use App\Controllers\DetailsController;
@@ -23,46 +56,30 @@ use App\Controllers\Api\DetailsApiController;
 use App\Controllers\Api\SuggestApiController;
 use App\Controllers\Api\AuthApiController;
 
-
 use App\Validation\Validator;
 
-
-
 /*
 |--------------------------------------------------------------------------
-| ERROR REPORTING
+| SESSION
 |--------------------------------------------------------------------------
 */
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-ini_set('html_errors', 1);
-
-/*
-|--------------------------------------------------------------------------
-| SESSION START (CRITICAL)
-|--------------------------------------------------------------------------
-*/
 session_start();
 
 /*
 |--------------------------------------------------------------------------
-| BASE PATH
-|--------------------------------------------------------------------------
-*/
-define('BASE_PATH', dirname(__DIR__));
-
-require_once BASE_PATH . '/vendor/autoload.php';
-require_once BASE_PATH . '/App/Core/Database.php';
-require_once BASE_PATH . '/inc/CustomPath.php';
-
-/*
-|--------------------------------------------------------------------------
-| ENVIRONMENT
+| ENV
 |--------------------------------------------------------------------------
 */
 $dotenv = Dotenv::createImmutable(BASE_PATH);
 $dotenv->load();
+
+/*
+|--------------------------------------------------------------------------
+| ERROR HANDLER INIT
+|--------------------------------------------------------------------------
+*/
+ErrorHandler::register();
 
 /*
 |--------------------------------------------------------------------------
@@ -85,19 +102,15 @@ $userRepo    = new UserRepository($db);
 | SERVICES
 |--------------------------------------------------------------------------
 */
-$catalogService = new CatalogService($catalogRepo);
-$formatService  = new FormatService($formatRepo);
-// $userService    = new UserService($userRepo);
 $validator = new Validator();
 
-$userService = new UserService(
-    $userRepo,
-    $validator
-);
+$catalogService = new CatalogService($catalogRepo);
+$formatService  = new FormatService($formatRepo);
+$userService    = new UserService($userRepo, $validator);
 
 /*
 |--------------------------------------------------------------------------
-| CONTROLLERS (CREATE ONCE ONLY)
+| CONTROLLERS
 |--------------------------------------------------------------------------
 */
 $catalogController = new CatalogController($catalogService);
@@ -107,11 +120,13 @@ $authController    = new AuthController($userService);
 
 /*
 |--------------------------------------------------------------------------
-| API CONTROLLERS (CREATE ONCE ONLY)
+| API CONTROLLERS
 |--------------------------------------------------------------------------
 */
-
-$authApiController = new AuthApiController($userService);
+$catalogApiController = new CatalogApiController($catalogService);
+$detailsApiController = new DetailsApiController($catalogService);
+$suggestApiController = new SuggestApiController($formatService);
+$authApiController    = new AuthApiController($userService);
 
 /*
 |--------------------------------------------------------------------------
@@ -120,36 +135,39 @@ $authApiController = new AuthApiController($userService);
 */
 $page = $_GET['page'] ?? 'home';
 
-
-/*
-|----------------------------------------------------------------
-| AUTH PROTECTION (PUT HERE)
-|----------------------------------------------------------------
-*/
 /*
 |--------------------------------------------------------------------------
-| AUTH MIDDLEWARE (FIXED)
+| AUTH MIDDLEWARE
 |--------------------------------------------------------------------------
 */
-$protectedPages = ['home', 'catalog', 'details', 'suggest'];
+$protectedPages = [
+    'home',
+    'catalog',
+    'details',
+    'suggest'
+];
 
 if (
-    in_array($page, $protectedPages) &&
-    !isset($_SESSION['user_id'])
+    in_array($page, $protectedPages, true) &&
+    empty($_SESSION['user_id'])
 ) {
-    $_SESSION['auth_error'] = "Please login first!";
+    $_SESSION['auth_error'] = 'Please login first!';
 
-    header("Location: index.php?page=login");
+    header('Location: ' . BASE_URL . '/Public/index.php?page=login');
     exit;
 }
 
+/*
+|--------------------------------------------------------------------------
+| ROUTING
+|--------------------------------------------------------------------------
+*/
 switch ($page) {
 
-
     /*
-    |--------------------------------------------------------------------------
+    |--------------------------
     | WEB ROUTES
-    |--------------------------------------------------------------------------
+    |--------------------------
     */
     case 'home':
         $catalogController->home();
@@ -168,9 +186,9 @@ switch ($page) {
         break;
 
     /*
-    |--------------------------------------------------------------------------
+    |--------------------------
     | AUTH ROUTES
-    |--------------------------------------------------------------------------
+    |--------------------------
     */
     case 'register':
         $authController->showRegister();
@@ -193,23 +211,20 @@ switch ($page) {
         break;
 
     /*
-    |--------------------------------------------------------------------------
+    |--------------------------
     | API ROUTES
-    |--------------------------------------------------------------------------
+    |--------------------------
     */
     case 'api-catalog':
-        $controller = new CatalogApiController($catalogService);
-        $controller->index();
+        $catalogApiController->index();
         break;
 
     case 'api-details':
-        $controller = new DetailsApiController($catalogService);
-        $controller->show();
+        $detailsApiController->show();
         break;
 
     case 'api-suggest':
-        $controller = new SuggestApiController($formatService);
-        $controller->store();
+        $suggestApiController->store();
         break;
 
     case 'api-register':
@@ -224,11 +239,10 @@ switch ($page) {
         $authApiController->logout();
         break;
 
-
     /*
-    |--------------------------------------------------------------------------
-    | DEFAULT ROUTE
-    |--------------------------------------------------------------------------
+    |--------------------------
+    | DEFAULT
+    |--------------------------
     */
     default:
         $catalogController->home();

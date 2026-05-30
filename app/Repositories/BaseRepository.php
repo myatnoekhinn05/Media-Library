@@ -19,9 +19,21 @@ class BaseRepository implements BaseRepositoryInterface
 
     protected array $fillable = [];
 
-    // ✅ Stored procedures support
+    /*
+    |--------------------------------------------------------------------------
+    | STORED PROCEDURES
+    |--------------------------------------------------------------------------
+    */
+
     protected ?string $getAllProcedure = null;
+
     protected ?string $getByIdProcedure = null;
+
+    protected ?string $createProcedure = null;
+
+    protected ?string $updateProcedure = null;
+
+    protected ?string $deleteProcedure = null;
 
     public function __construct(PDO $db)
     {
@@ -30,65 +42,66 @@ class BaseRepository implements BaseRepositoryInterface
 
     /*
     |--------------------------------------------------------------------------
-    | GET ALL (SQL OR PROCEDURE)
+    | GET ALL
     |--------------------------------------------------------------------------
     */
+
     public function getAll(?int $limit = null, int $offset = 0): array
     {
-        // PROCEDURE MODE
         if ($this->getAllProcedure !== null) {
 
-            $stmt = $this->db->prepare("CALL {$this->getAllProcedure}(:limit, :offset)");
+            $stmt = $this->db->prepare(
+                "CALL {$this->getAllProcedure}(:limit, :offset)"
+            );
 
-            $stmt->bindValue(':limit', $limit, $limit ? PDO::PARAM_INT : PDO::PARAM_NULL);
-            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->bindValue(
+                ':limit',
+                $limit,
+                $limit !== null
+                    ? PDO::PARAM_INT
+                    : PDO::PARAM_NULL
+            );
+
+            $stmt->bindValue(
+                ':offset',
+                $offset,
+                PDO::PARAM_INT
+            );
 
             $stmt->execute();
 
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
             $stmt->closeCursor();
 
             return $data;
         }
 
-        // TABLE MODE
-        $cols = $this->columns ? implode(', ', $this->columns) : '*';
-
-        $sql = "SELECT {$cols} FROM {$this->table}";
-
-        if ($limit !== null) {
-            $sql .= " LIMIT :limit OFFSET :offset";
-        }
-
-        $stmt = $this->db->prepare($sql);
-
-        if ($limit !== null) {
-            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        }
-
-        $stmt->execute();
-
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return [];
     }
 
     /*
     |--------------------------------------------------------------------------
-    | GET BY ID (SQL OR PROCEDURE)
+    | GET BY ID
     |--------------------------------------------------------------------------
     */
+
     public function getById(int $id): array
     {
-        // PROCEDURE MODE
         if ($this->getByIdProcedure !== null) {
 
-            $stmt = $this->db->prepare("CALL {$this->getByIdProcedure}(:id)");
-            $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+            $stmt = $this->db->prepare(
+                "CALL {$this->getByIdProcedure}(:id)"
+            );
+
+            $stmt->bindValue(
+                ':id',
+                $id,
+                PDO::PARAM_INT
+            );
+
             $stmt->execute();
 
-            // --------------------------
-            // 1. MAIN ITEM
-            // --------------------------
             $item = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$item) {
@@ -96,25 +109,30 @@ class BaseRepository implements BaseRepositoryInterface
                 return [];
             }
 
-            // --------------------------
-            // 2. INIT RELATION ARRAYS
-            // --------------------------
+            /*
+            |--------------------------------------------------------------------------
+            | HANDLE MULTIPLE RESULT SETS
+            |--------------------------------------------------------------------------
+            */
+
             $item['authors'] = [];
             $item['directors'] = [];
             $item['stars'] = [];
             $item['artists'] = [];
 
-            // --------------------------
-            // 3. NEXT RESULT SET (RELATIONS)
-            // --------------------------
             if ($stmt->nextRowset()) {
 
                 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
 
-                    $role = strtolower(trim($row['role'] ?? ''));
+                    $role = strtolower(
+                        trim($row['role'] ?? '')
+                    );
+
                     $name = $row['fullname'] ?? null;
 
-                    if (!$name) continue;
+                    if (!$name) {
+                        continue;
+                    }
 
                     switch ($role) {
 
@@ -123,13 +141,13 @@ class BaseRepository implements BaseRepositoryInterface
                             $item['authors'][] = $name;
                             break;
 
-                        case 'direct':
                         case 'director':
+                        case 'direct':
                             $item['directors'][] = $name;
                             break;
 
-                        case 'star':
                         case 'actor':
+                        case 'star':
                             $item['stars'][] = $name;
                             break;
 
@@ -145,22 +163,7 @@ class BaseRepository implements BaseRepositoryInterface
             return $item;
         }
 
-        // --------------------------
-        // TABLE MODE (UNCHANGED)
-        // --------------------------
-        $cols = $this->columns ? implode(', ', $this->columns) : '*';
-
-        $stmt = $this->db->prepare("
-        SELECT {$cols}
-        FROM {$this->table}
-        WHERE {$this->primaryKey} = :id
-        LIMIT 1
-    ");
-
-        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
-        $stmt->execute();
-
-        return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        return [];
     }
 
     /*
@@ -168,32 +171,40 @@ class BaseRepository implements BaseRepositoryInterface
     | CREATE
     |--------------------------------------------------------------------------
     */
+
     public function create(array $data): bool
     {
-        $fields = [];
-        $placeholders = [];
-
-        foreach ($this->fillable as $field) {
-            if (isset($data[$field])) {
-                $fields[] = $field;
-                $placeholders[] = ':' . $field;
-            }
+        if ($this->createProcedure === null) {
+            return false;
         }
 
-        $sql = "
-            INSERT INTO {$this->table}
-            (" . implode(',', $fields) . ")
-            VALUES
-            (" . implode(',', $placeholders) . ")
-        ";
+        $params = [];
+
+        foreach ($this->fillable as $field) {
+            $params[] = ':' . $field;
+        }
+
+        $sql = sprintf(
+            'CALL %s(%s)',
+            $this->createProcedure,
+            implode(', ', $params)
+        );
 
         $stmt = $this->db->prepare($sql);
 
-        foreach ($fields as $field) {
-            $stmt->bindValue(':' . $field, $data[$field]);
+        foreach ($this->fillable as $field) {
+
+            $stmt->bindValue(
+                ':' . $field,
+                $data[$field] ?? null
+            );
         }
 
-        return $stmt->execute();
+        $success = $stmt->execute();
+
+        $stmt->closeCursor();
+
+        return $success;
     }
 
     /*
@@ -201,33 +212,46 @@ class BaseRepository implements BaseRepositoryInterface
     | UPDATE
     |--------------------------------------------------------------------------
     */
+
     public function update(int $id, array $data): bool
     {
-        $sets = [];
-
-        foreach ($this->fillable as $field) {
-            if (isset($data[$field])) {
-                $sets[] = "{$field} = :{$field}";
-            }
+        if ($this->updateProcedure === null) {
+            return false;
         }
 
-        $sql = "
-            UPDATE {$this->table}
-            SET " . implode(',', $sets) . "
-            WHERE {$this->primaryKey} = :id
-        ";
+        $params = [':id'];
+
+        foreach ($this->fillable as $field) {
+            $params[] = ':' . $field;
+        }
+
+        $sql = sprintf(
+            'CALL %s(%s)',
+            $this->updateProcedure,
+            implode(', ', $params)
+        );
 
         $stmt = $this->db->prepare($sql);
 
+        $stmt->bindValue(
+            ':id',
+            $id,
+            PDO::PARAM_INT
+        );
+
         foreach ($this->fillable as $field) {
-            if (isset($data[$field])) {
-                $stmt->bindValue(':' . $field, $data[$field]);
-            }
+
+            $stmt->bindValue(
+                ':' . $field,
+                $data[$field] ?? null
+            );
         }
 
-        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $success = $stmt->execute();
 
-        return $stmt->execute();
+        $stmt->closeCursor();
+
+        return $success;
     }
 
     /*
@@ -235,15 +259,27 @@ class BaseRepository implements BaseRepositoryInterface
     | DELETE
     |--------------------------------------------------------------------------
     */
+
     public function delete(int $id): bool
     {
-        $stmt = $this->db->prepare("
-            DELETE FROM {$this->table}
-            WHERE {$this->primaryKey} = :id
-        ");
+        if ($this->deleteProcedure === null) {
+            return false;
+        }
 
-        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt = $this->db->prepare(
+            "CALL {$this->deleteProcedure}(:id)"
+        );
 
-        return $stmt->execute();
+        $stmt->bindValue(
+            ':id',
+            $id,
+            PDO::PARAM_INT
+        );
+
+        $success = $stmt->execute();
+
+        $stmt->closeCursor();
+
+        return $success;
     }
 }

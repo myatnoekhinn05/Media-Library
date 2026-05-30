@@ -1,49 +1,120 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controllers;
 
+use Throwable;
 use App\Services\CatalogService;
-//require_once BASE_PATH . '/Service/CatalogService.php';
-
-/*
- * Thin Controller:
- * Only handles HTTP request → passes to service → loads view
- */
+use App\Exceptions\NotFoundException;
+use App\Exceptions\ValidationException;
 
 class CatalogController extends BaseController
 {
     private CatalogService $catalogService;
 
-    public function __construct(CatalogService $catalogService)
-    {
+    public function __construct(
+        CatalogService $catalogService
+    ) {
         $this->catalogService = $catalogService;
     }
 
     /*
-     * Homepage
-     */
+    |--------------------------------------------------------------------------
+    | HOME PAGE
+    |--------------------------------------------------------------------------
+    */
     public function home(): void
     {
-        $this->requireLogin();
-        $data = $this->catalogService->getHomePageData();
+        try {
 
-        // Extract variables for view
-        extract($data);
+            $this->requireLogin();
 
-        require BASE_PATH . '/view/home.php';
+            $data = $this->catalogService->getHomePageData();
+
+            extract($data);
+
+            require BASE_PATH . '/view/home.php';
+        } catch (Throwable $e) {
+
+            $this->handleSystemError($e);
+        }
     }
 
-    /**
-     * Catalog page (FULL LOGIC MOVED TO SERVICE)
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | CATALOG PAGE
+    |--------------------------------------------------------------------------
+    */
     public function index(): void
     {
-        $this->requireLogin();
-        $data = $this->catalogService->getCatalogPage($_GET);
+        try {
 
-        // Make variables available in view
-        extract($data);
+            $this->requireLogin();
 
-        require BASE_PATH . '/view/catalog.php';
+            $data = $this->catalogService->getCatalogPage($_GET);
+
+            extract($data);
+
+            require BASE_PATH . '/view/catalog.php';
+        } catch (ValidationException $e) {
+
+            $_SESSION['error'] = $e->getMessage();
+
+            $this->redirect(
+                BASE_URL . '/Public/index.php?page=catalog'
+            );
+        } catch (Throwable $e) {
+
+            $this->handleSystemError($e);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SHOW ITEM
+    |--------------------------------------------------------------------------
+    */
+    public function show(): void
+    {
+        try {
+
+            $this->requireLogin();
+
+            $id = (int) ($_GET['id'] ?? 0);
+
+            $item = $this->catalogService->getById($id);
+
+            require BASE_PATH . '/view/details.php';
+        } catch (ValidationException | NotFoundException $e) {
+
+            $_SESSION['error'] = $e->getMessage();
+
+            $this->redirect(
+                BASE_URL . '/Public/index.php?page=catalog'
+            );
+        } catch (Throwable $e) {
+
+            $this->handleSystemError($e);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | HANDLE SYSTEM ERROR
+    |--------------------------------------------------------------------------
+    */
+    private function handleSystemError(
+        Throwable $e
+    ): void {
+
+        error_log($e);
+
+        $_SESSION['error'] =
+            'Something went wrong. Please try again later.';
+
+        $this->redirect(
+            BASE_URL . '/Public/index.php?page=home'
+        );
     }
 }
